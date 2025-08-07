@@ -100,7 +100,7 @@ game:GetService("RunService").Heartbeat:Connect(UpdateRoles)
 RolesTab:CreateButton({
     Name = "Copy Roles",
     Callback = function()
-        local namesToCopy = "Sheriff: "..sheriffName.."\nMurder: "..murderName.."\n◀◀ Gojo Hub ▶▶"
+        local namesToCopy = "Sheriff: "..sheriffName.."\nMurder: "..murderName
         setclipboard(namesToCopy)
         
         Rayfield:Notify({
@@ -115,7 +115,7 @@ RolesTab:CreateButton({
 RolesTab:CreateButton({
     Name = "Send roles to chat",
     Callback = function()
-        local message = "Sheriff: "..sheriffName.."\nMurder: "..murderName.."\n◀◀ Gojo Hub ▶▶"
+        local message = "Sheriff: "..sheriffName.."\nMurder: "..murderName
         
         if game:GetService("TextChatService") then
             local channel = game:GetService("TextChatService").TextChannels.RBXGeneral
@@ -508,4 +508,144 @@ end
 Game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = OldSpeed
 end)
 end,
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- Добавляем переключатель ESP ролей
+EspTab:CreateToggle({
+   Name = "Esp Roles",
+   CurrentValue = false,
+   Flag = "RoleESP",
+   Callback = function(Value)
+      if Value then
+         -- Включение ESP
+         if not _G.RoleESP then
+            -- Цвета для ролей
+            local roleColors = {
+               Murderer = Color3.fromRGB(255, 0, 0),
+               Sheriff = Color3.fromRGB(0, 0, 255),
+               Hero = Color3.fromRGB(255, 255, 0),
+               Innocent = Color3.fromRGB(0, 255, 0),
+               Default = Color3.fromRGB(200, 200, 200)
+            }
+
+            -- Функция получения ролей
+            local function getRoles()
+               local success, data = pcall(function()
+                  return ReplicatedStorage:FindFirstChild("GetPlayerData", true):InvokeServer()
+               end)
+               if not success then return {} end
+               
+               local roles = {}
+               for plr, plrData in pairs(data) do
+                  if not plrData.Dead then
+                     roles[plr] = plrData.Role
+                  end
+               end
+               return roles
+            end
+
+            -- Очистка ESP
+            local function clearESP()
+               for _, player in ipairs(Players:GetPlayers()) do
+                  if player.Character then
+                     local head = player.Character:FindFirstChild("Head")
+                     if head and head:FindFirstChild("RoleESP") then
+                        head.RoleESP:Destroy()
+                     end
+                     if player.Character:FindFirstChild("RoleHighlight") then
+                        player.Character.RoleHighlight:Destroy()
+                     end
+                  end
+               end
+            end
+
+            -- Создание подсветки
+            local function applyHighlight(character, role)
+               local hl = Instance.new("Highlight")
+               hl.Name = "RoleHighlight"
+               hl.FillColor = roleColors[role] or roleColors.Default
+               hl.OutlineColor = Color3.new(1, 1, 1)
+               hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+               hl.FillTransparency = 0.4
+               hl.OutlineTransparency = 0
+               hl.Parent = character
+            end
+
+            -- Создание текста с ролью
+            local function createRoleLabel(head, role)
+               local esp = Instance.new("BillboardGui")
+               esp.Name = "RoleESP"
+               esp.Adornee = head
+               esp.Size = UDim2.new(4, 0, 4, 0)
+               esp.AlwaysOnTop = true
+               esp.Parent = head
+               
+               local label = Instance.new("TextLabel")
+               label.Name = "RoleLabel"
+               label.Parent = esp
+               label.Size = UDim2.new(1, 0, 1, 0)
+               label.BackgroundTransparency = 1
+               label.TextStrokeTransparency = 0
+               label.TextSize = 14
+               label.TextColor3 = roleColors[role] or roleColors.Default
+               label.Font = Enum.Font.FredokaOne
+               label.Text = role -- Только роль без имени
+            end
+
+            -- Обновление ESP
+            local function updateESP()
+               local roles = getRoles()
+               for _, player in ipairs(Players:GetPlayers()) do
+                  if player ~= LocalPlayer and player.Character then
+                     local head = player.Character:FindFirstChild("Head")
+                     if head then
+                        local role = roles[player.Name] or "Default"
+                        
+                        -- Обновляем текст роли
+                        if not head:FindFirstChild("RoleESP") then
+                           createRoleLabel(head, role)
+                        else
+                           local label = head.RoleESP.RoleLabel
+                           if label then
+                              label.Text = role
+                              label.TextColor3 = roleColors[role] or roleColors.Default
+                           end
+                        end
+                        
+                        -- Обновляем подсветку
+                        if not player.Character:FindFirstChild("RoleHighlight") then
+                           applyHighlight(player.Character, role)
+                        else
+                           player.Character.RoleHighlight.FillColor = roleColors[role] or roleColors.Default
+                        end
+                     end
+                  end
+               end
+            end
+
+            -- Запускаем обновление
+            _G.RoleESP = {
+               Connection = game:GetService("RunService").Heartbeat:Connect(function()
+                  pcall(updateESP)
+                  task.wait(0.3)
+               end),
+               
+               Disconnect = function(self)
+                  self.Connection:Disconnect()
+                  clearESP()
+               end
+            }
+         end
+      else
+         -- Отключение ESP
+         if _G.RoleESP then
+            _G.RoleESP:Disconnect()
+            _G.RoleESP = nil
+         end
+      end
+   end
 })
