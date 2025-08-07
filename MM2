@@ -100,7 +100,7 @@ game:GetService("RunService").Heartbeat:Connect(UpdateRoles)
 RolesTab:CreateButton({
     Name = "Copy Roles",
     Callback = function()
-        local namesToCopy = "Sheriff: "..sheriffName.."\nMurder: "..murderName
+        local namesToCopy = "Sheriff: "..sheriffName.."\nMurder: "..murderName.."\n◀◀ Gojo Hub ▶▶"
         setclipboard(namesToCopy)
         
         Rayfield:Notify({
@@ -115,7 +115,7 @@ RolesTab:CreateButton({
 RolesTab:CreateButton({
     Name = "Send roles to chat",
     Callback = function()
-        local message = "Sheriff: "..sheriffName.."\nMurder: "..murderName
+        local message = "Sheriff: "..sheriffName.."\nMurder: "..murderName.."\n◀◀ Gojo Hub ▶▶"
         
         if game:GetService("TextChatService") then
             local channel = game:GetService("TextChatService").TextChannels.RBXGeneral
