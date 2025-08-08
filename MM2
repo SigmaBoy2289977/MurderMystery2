@@ -1184,7 +1184,7 @@ local function SkidFling(TargetPlayer)
 end
 
 MiscTab:CreateButton({
-   Name = "Fling Murderer(Touch Fling Needed!) ",
+   Name = "Fling Murderer",
    Callback = function()
         local Murderer = nil
         for plr, role in getRoles() do
@@ -1214,7 +1214,7 @@ MiscTab:CreateButton({
 })
 
 MiscTab:CreateButton({
-   Name = "Fling Sheriff/Hero(Touch Fling Needed!)",
+   Name = "Fling Sheriff/Hero",
    Callback = function()
         local Target = nil
         for plr, role in getRoles() do
