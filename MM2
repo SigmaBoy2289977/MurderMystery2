@@ -1446,3 +1446,170 @@ EspTab:CreateToggle({
         end)
     end
 })
+
+-- Финальные настройки
+local Settings = {
+    Enabled = false,
+    FlightSpeed = 30,        -- Стартовая скорость (макс. 40)
+    NoClip = true,
+    SearchRadius = 100,
+    CollectDistance = 0.3,   -- Теперь сбор почти вплотную (0.3 studs)
+    PriorityCoins = true,
+    Acceleration = 0.25      -- Фиксированная плавност
+})
+
+local Toggle = AutoFarmTab:CreateToggle({
+    Name = "🌊 Enable Flight",
+    CurrentValue = false,
+    Callback = function(Value)
+        Settings.Enabled = Value
+        if Value then 
+            StartFlight() 
+        else 
+            StopFlight() 
+        end
+    end
+})
+
+local SpeedSlider = AutoFarmTab:CreateSlider({
+    Name = "🐢 Flight Speed (30 Recommended!)",
+    Range = {10, 30},       -- Максимум 40
+    Increment = 1,
+    Suffix = " studs/s",
+    CurrentValue = 30,
+    Callback = function(Value) 
+        Settings.FlightSpeed = Value 
+    end
+})
+
+local StatusLabel = AutoFarmTab:CreateLabel("🔴 Status: INACTIVE")
+
+-- Поиск объектов (без изменений)
+local function FindMM2Objects()
+    local character = game.Players.LocalPlayer.Character
+    if not character or not character.PrimaryPart then return nil end
+
+    local closest = nil
+    local minDist = math.huge
+    local charPos = character.PrimaryPart.Position
+
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj:FindFirstChildWhichIsA("TouchTransmitter") then
+            local dist = (obj.Position - charPos).Magnitude
+            if dist < minDist and dist <= Settings.SearchRadius then
+                if obj.Name:lower():find("coin") or obj.Name:lower():find("orb") then
+                    closest = obj
+                    minDist = dist
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+-- Идеально плавный полет **с точным попаданием в центр**
+local function PerfectFlight(target)
+    local player = game.Players.LocalPlayer
+    local character = player.Character
+    if not character or not character.PrimaryPart then return false end
+
+    local currentVelocity = Vector3.new()
+    local targetPos = target.Position
+    local startTime = tick()
+
+    -- Создаем BodyVelocity для плавности
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.P = 1250  -- Сила реакции
+    bodyVelocity.Parent = character.PrimaryPart
+
+    while Settings.Enabled and tick() - startTime < 25 do
+        -- Проверка цели
+        if not target or not target.Parent then break end
+        targetPos = target.Position
+
+        -- Проверка персонажа
+        character = player.Character
+        if not character or not character.PrimaryPart then break end
+        
+        local currentPos = character.PrimaryPart.Position
+        local distToTarget = (targetPos - currentPos).Magnitude
+
+        -- **Точный сбор (летим до самого центра)**
+        if distToTarget <= Settings.CollectDistance then
+            firetouchinterest(character.PrimaryPart, target, 0)
+            task.wait(0.05)
+            firetouchinterest(character.PrimaryPart, target, 1)
+            break
+        end
+
+        -- **Плавное управление скоростью (чтобы не проскакивал)**
+        local speedMultiplier = math.clamp(distToTarget / 5, 0.5, 1.0) -- Замедление при приближении
+        local direction = (targetPos - currentPos).Unit
+        local targetVelocity = direction * Settings.FlightSpeed * speedMultiplier
+        currentVelocity = currentVelocity:Lerp(targetVelocity, Settings.Acceleration)
+
+        -- Применение скорости
+        bodyVelocity.Velocity = currentVelocity
+
+        -- Статус
+        StatusLabel:Set(string.format(
+            "🎯 %s (%.1f studs) | Speed: %.1f", 
+            target.Name, distToTarget, currentVelocity.Magnitude
+        ))
+
+        task.wait(0.03)
+    end
+
+    -- Очистка
+    if bodyVelocity then bodyVelocity:Destroy() end
+    return true
+end
+
+-- Основная система (без изменений)
+function StartFlight()
+    StatusLabel:Set("🟢 Status: FLIGHT ACTIVE")
+
+    coroutine.wrap(function()
+        while Settings.Enabled do
+            local target = FindMM2Objects()
+            
+            if target then
+                if PerfectFlight(target) then
+                    StatusLabel:Set("💰 Collected!")
+                    task.wait(0.1)
+                end
+            else
+                StatusLabel:Set("🔍 Scanning...")
+                task.wait(0.5)
+            end
+        end
+    end)()
+end
+
+function StopFlight()
+    Settings.Enabled = false
+    StatusLabel:Set("🔴 Status: INACTIVE")
+    
+    -- Очищаем физику
+    local character = game.Players.LocalPlayer.Character
+    if character and character.PrimaryPart then
+        local bodyVelocity = character.PrimaryPart:FindFirstChild("BodyVelocity")
+        if bodyVelocity then bodyVelocity:Destroy() end
+    end
+end
+
+-- NoClip система (без изменений)
+game:GetService("RunService").Stepped:Connect(function()
+    if Settings.Enabled and Settings.NoClip then
+        local character = game.Players.LocalPlayer.Character
+        if character then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then 
+                    part.CanCollide = false 
+                end
+            end
+        end
+    end
+end)
